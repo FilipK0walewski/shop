@@ -4,10 +4,11 @@ from rest_framework.urlpatterns import format_suffix_patterns
 from shop import views
 
 urlpatterns = [
-    path('kategoria/', views.CategoryList.as_view()),
-    path('kategoria-test/', views.category_list),
-    path('', views.SnippetList.as_view()),
-    path('<int:pk>/', views.SnippetDetail.as_view()),
+    path('category-list/', views.category_list),
+    path('category-list/<int:pk>/', views.category_list),
+    path('category-tree/', views.category_tree),
+    path('product/', views.product_list),
+    path('product/<slug:slug>', views.product_detail),
 ]
 
 urlpatterns = format_suffix_patterns(urlpatterns)
