@@ -1,5 +1,6 @@
 from rest_framework import status
 from rest_framework.decorators import api_view
+from rest_framework.pagination import LimitOffsetPagination
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -8,35 +9,41 @@ from shop.models import Category, Product
 
 
 @api_view(['GET'])
-def product_list(request, format=None):
-    products = Product.objects.all()
-    serializer = ProductSerializer(products, many=True)
-    return Response(serializer.data)
+def product_list(request):
+    search = request.query_params.get('search')
+    order_by = request.query_params.get('order', '-created_at')
+    category = request.query_params.get('category')
+    sex = request.query_params.get('sex')
+
+    print(category, sex)
+
+    queryset = Product.objects.all().order_by(order_by)
+
+    if search is not None:
+        queryset = queryset.filter(name__contains=search)
+
+    if category is not None:
+        queryset = queryset.filter(category__slug=category)
+
+    if sex is not None:
+        queryset = queryset.filter(sex=sex)
+
+    paginator = LimitOffsetPagination()
+    paginated_data = paginator.paginate_queryset(queryset, request)
+    serializer = ProductSerializer(paginated_data, many=True, context={'request': request})
+
+    pagination_data = {
+        'count': queryset.count(),
+        'next': paginator.get_next_link(),
+        'previous': paginator.get_previous_link(),
+        'products': serializer.data
+    }
+
+    return Response(pagination_data)
 
 
 @api_view(['GET'])
 def product_detail(request, slug):
     product = Product.objects.get(slug=slug)
-    serializer = ProductDetailSerializer(product)
-    return Response(serializer.data)
-
-
-@api_view(['GET'])
-def category_list(request, pk=None):
-    categories = Category.objects.filter(parent=pk)
-    serializer = CategorySerializer(categories, many=True)
-    return Response(serializer.data)
-
-
-@api_view(['GET'])
-def category_tree(request):
-    def build_category_tree(category):
-        category_data = CategorySerializer(category).data
-        subcategories = category.category_set.all()
-        if subcategories:
-            category_data['subcategories'] = [build_category_tree(subcategory) for subcategory in subcategories]
-        return category_data
-
-    root_categories = Category.objects.filter(parent=None)
-    tree = [build_category_tree(category) for category in root_categories]
-    return Response(tree)
+    serializer = ProductDetailSerializer(product, context={'request': request})
+    return Response(serializer.data, template_name='product_detail.html')
